@@ -1,0 +1,6 @@
+trials/
+trials_dev/
+results/
+logs/
+__pycache__/
+*.pyc
