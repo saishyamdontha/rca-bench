@@ -33,3 +33,7 @@ python3 scripts/run_experiment.py --faults all --repeats 3
 python3 -m rca.evaluate --diagnoser rules
 RCA_MODEL=qwen3:8b RCA_THINK=1 python3 -m rca.evaluate --diagnoser llm
 ```
+
+## History
+Developed inside RealEstate_Blockchain before being split out; earlier history is in
+commits `db2272f`..`7aa04d4` of that repo (fault injection, runner, diagnosers, dev-set changes).
