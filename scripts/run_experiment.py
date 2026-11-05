@@ -14,6 +14,7 @@ import argparse, json, os, random, signal, subprocess, sys, time, urllib.request
 
 sys.path.insert(0, os.path.dirname(__file__))
 import faults as F
+import snapshot as SNAP
 from load import LoadGen, now
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -51,12 +52,18 @@ def run_trial(fault, trial_id, root, warmup, hold, cooldown, seed):
     truth = {"trial_id": trial_id, **fault.truth(), "warmup_s": warmup, "hold_s": hold, "cooldown_s": cooldown}
     try:
         print(f"[{trial_id}] warmup {warmup}s", flush=True); sleep(warmup)
+        take_snapshot(d, "snapshot_before.json")          # healthy baseline
         truth["inject_ts"] = now()
         try:
             fault.inject()
         except Exception as e:
             truth["inject_error"] = str(e)[:500]
-        print(f"[{trial_id}] injected {fault.name}, holding {hold}s", flush=True); sleep(hold)
+        print(f"[{trial_id}] injected {fault.name}, holding {hold}s", flush=True)
+        sleep(hold / 2)
+        t_snap = time.time()
+        take_snapshot(d, "snapshot_during.json")          # evidence while the fault is active
+        truth["snapshot_during_s"] = round(time.time() - t_snap, 2)
+        sleep(max(0, hold / 2 - (time.time() - t_snap)))
         truth["revert_ts"] = now()
         try:
             fault.revert()
@@ -78,6 +85,19 @@ def run_trial(fault, trial_id, root, warmup, hold, cooldown, seed):
     print(f"[{trial_id}] done{' (INJECT ERROR: ' + truth['inject_error'] + ')' if 'inject_error' in truth else ''}",
           flush=True)
     return truth
+
+
+def take_snapshot(d, name):
+    """Record what an engineer could check right now; never let a failed snapshot kill the trial."""
+    if F.DRY_RUN:
+        print(f"  snapshot -> {name}")
+        return
+    try:
+        snap = SNAP.take()
+    except Exception as e:
+        snap = {"error": f"snapshot failed: {type(e).__name__}: {e}"[:300]}
+    with open(os.path.join(d, name), "w") as f:
+        json.dump(snap, f, indent=2)
 
 
 def sleep(s):
