@@ -4,3 +4,5 @@ results/
 logs/
 __pycache__/
 *.pyc
+trials_v2/
+trials_v2.log
