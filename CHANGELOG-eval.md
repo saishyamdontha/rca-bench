@@ -42,3 +42,16 @@ Limitations found after reading these results (trials_v2 is now inspected; no tu
 - Silence signal: inject_ts is taken before the kill, so one log line in that gap hides a killed backend ("silent now: none").
 - evidence_valid is too strict to read as a hallucination rate: models quote the rendered prompt, elide with "...", and one bad quote fails the trial.
 - llm and agent ran concurrently on one GPU, so latencies are not comparable.
+
+## v3 evaluation (2026-11-08, code frozen at tag v3-frozen)
+| diagnoser | correct | acc | 95% CI | false alarms (none) |
+|---|---|---|---|---|
+| rules | 55/66 | 83% | 73-90 | 0/12 |
+| agent | 53/66 | 80% | 69-88 | 3/12 |
+| llm   | 43/66 | 65% | 53-76 | 6/12 |
+
+Limitations: intervals overlap, no winner claimed. All three fail db_lock (silent logs).
+Agent used 0.9 tool calls per incident on average. One agent trial timed out (600 s).
+LLM quoted log lines absent from the data on 6/12 fault-free runs (grep found none).
+LLM judge disagrees with the evaluator on correct diagnoses; judge numbers not used.
+Code was developed on an earlier 36-incident set; this 66-incident set was collected after freezing.
