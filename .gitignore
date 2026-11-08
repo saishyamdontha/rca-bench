@@ -6,3 +6,8 @@ __pycache__/
 *.pyc
 trials_v2/
 trials_v2.log
+trials_v3/
+mlruns/
+mlflow.db
+.pytest_cache/
+.venv/

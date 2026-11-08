@@ -86,9 +86,7 @@ def diagnose(inc):
                         "evidence": [_snippet(text, m)]}
 
     # Silence rule: backend was logging before, and is completely silent now.
-    had_backend = any(r.get("service") == "backend" for r in inc.baseline)
-    has_backend = any(r.get("service") == "backend" for r in inc.window)
-    if had_backend and not has_backend:
+    if "backend" in inc.silent():
         return {"component": "backend", "root_cause": "Backend stopped producing any logs; process is likely down.",
                 "rule": "backend_silent", "evidence": []}
 

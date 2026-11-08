@@ -2,7 +2,7 @@
 
 Sees exactly what the rules baseline sees, to keep the comparison fair:
   - ERROR/WARN records in the incident window (deduplicated, capped)
-  - per-service log volume: baseline vs incident window (lets it notice silence)
+  - services that went silent or restarted during the incident
 
   RCA_MODEL=qwen3:8b python3 -m rca.evaluate --diagnoser llm
   RCA_MODEL=llama3.2 python3 -m rca.evaluate --diagnoser llm
@@ -15,6 +15,7 @@ HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 MAX_LINES = int(os.environ.get("RCA_MAX_LINES", "40"))
 TIMEOUT = int(os.environ.get("RCA_TIMEOUT", "180"))
 THINK = os.environ.get("RCA_THINK", "0") == "1"   # qwen3 reasoning mode: experimental variable
+NUM_CTX = int(os.environ.get("RCA_NUM_CTX", "16384"))   # same for llm and agent
 COMPONENTS = ["db", "chain", "wallet", "backend", "none"]
 
 SYSTEM = """You are an on-call SRE diagnosing an incident in this system:
@@ -69,9 +70,7 @@ def build_prompt(inc):
 
     # Same signal the rules baseline uses: services that were logging before and are now completely silent.
     # (Raw volume is NOT shown: it swings with random traffic and misled models on no-fault trials.)
-    before = {r.get("service") for r in inc.baseline}
-    during = {r.get("service") for r in inc.window}
-    silent = sorted(before - during)
+    silent = inc.silent()
     restarted = inc.restarted()
     dur = int((inc.end - inc.start).total_seconds())
     body = (f"Incident window: {dur}s.\n\nServices that were logging before but are completely silent now: "
@@ -85,7 +84,7 @@ def build_prompt(inc):
 
 def _call(prompt):
     payload = {"model": MODEL, "stream": False, "format": SCHEMA, "think": THINK,
-               "options": {"temperature": 0, "num_ctx": 8192},
+               "options": {"temperature": 0, "num_ctx": NUM_CTX},
                "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}
     req = urllib.request.Request(f"{HOST}/api/chat", data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"})

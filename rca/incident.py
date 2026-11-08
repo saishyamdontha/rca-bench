@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 
 BASELINE_S = 30
+SETTLE_S = 5    # inject_ts is taken before the fault lands; ignore this much of the window when judging silence
 
 # Startup markers per service: a service that logs one of these inside the
 # incident window was (re)started during the incident -- "what changed?".
@@ -49,6 +50,13 @@ class Incident:
         """Services that logged a startup marker inside the incident window."""
         return sorted({svc for r in self.window for svc, rx in STARTUP_MARKERS.items()
                        if r.get("service") == svc and rx.search(r.get("msg", ""))})
+
+    def silent(self, settle_s=SETTLE_S):
+        """Services that logged in the baseline but not after the fault had time to land."""
+        cutoff = self.start + timedelta(seconds=settle_s)
+        before = {r.get("service") for r in self.baseline}
+        after = {r.get("service") for r in self.window if parse_ts(r["ts"]) >= cutoff}
+        return sorted(before - after)
 
     def text(self, r):
         """Everything a diagnoser may quote from one record."""

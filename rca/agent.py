@@ -86,7 +86,7 @@ def _tool_schema():
 # ------------------------------------------------------------------- loop ---
 def _chat(messages, tools=None, fmt=None):
     payload = {"model": MODEL, "stream": False, "think": THINK, "messages": messages,
-               "options": {"temperature": 0, "num_ctx": 16384}}
+               "options": {"temperature": 0, "num_ctx": L.NUM_CTX}}
     if tools:
         payload["tools"] = tools
     if fmt:
