@@ -17,8 +17,9 @@ from collections import defaultdict
 from rca.incident import load_incident, load_truth
 
 
-def evidence_valid(inc, evidence):
-    texts = [inc.text(r) for r in inc.window]
+def evidence_valid(inc, evidence, tool_calls=()):
+    """Every quote must occur verbatim in the window logs or in a tool result the diagnoser received."""
+    texts = [inc.text(r) for r in inc.window] + [c.get("result", "") for c in tool_calls]
     return all(any(e and e in t for t in texts) for e in evidence)
 
 
@@ -52,7 +53,8 @@ def main():
             "trial_id": truth["trial_id"], "fault": truth["name"], "category": truth["category"],
             "true_component": truth["component"], "pred_component": pred.get("component"),
             "correct": pred.get("component") == truth["component"],
-            "evidence_valid": evidence_valid(inc, pred.get("evidence", [])),
+            "evidence_valid": evidence_valid(inc, pred.get("evidence", []), pred.get("tool_calls", [])),
+            "n_tool_calls": pred.get("n_tool_calls"),
             "latency_s": round(lat, 3), "window_records": len(inc.window),
             "pred": pred, "true_root_cause": truth["root_cause"],
         })
@@ -82,6 +84,9 @@ def main():
     print(f"\noverall accuracy {acc:.0%} over {n} trials"
           + (f" | fault trials {sum(r['correct'] for r in faults)/len(faults):.0%}" if faults else "")
           + (f" | false alarms on 'none': {sum(not r['correct'] for r in nones)}/{len(nones)}" if nones else ""))
+    tc = [r["n_tool_calls"] for r in rows if r.get("n_tool_calls") is not None]
+    if tc:
+        print(f"tool calls per incident: avg {sum(tc)/len(tc):.1f}, max {max(tc)}")
     print(f"results: {out}")
     if a.show_wrong:
         for r in rows:

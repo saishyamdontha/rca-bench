@@ -40,6 +40,7 @@ class Incident:
     end: datetime
     window: list = field(default_factory=list)     # log records during the incident
     baseline: list = field(default_factory=list)   # log records just before it
+    snapshots: dict = field(default_factory=dict)  # {"before": {...}, "during": {...}}; tool-using diagnosers only
 
     def errors(self, levels=("ERROR", "WARN")):
         return [r for r in self.window if r.get("level") in levels]
@@ -73,6 +74,11 @@ def load_incident(trial_dir):
                     inc.window.append(r)
                 elif base_start <= ts < start:
                     inc.baseline.append(r)
+    for name in ("before", "during"):
+        sp = os.path.join(trial_dir, f"snapshot_{name}.json")
+        if os.path.exists(sp):
+            with open(sp) as f:
+                inc.snapshots[name] = json.load(f)
     return inc
 
 
