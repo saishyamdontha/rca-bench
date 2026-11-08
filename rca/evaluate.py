@@ -29,6 +29,8 @@ def main():
     ap.add_argument("--trials", default="trials")
     ap.add_argument("--out", default="results")
     ap.add_argument("--show-wrong", action="store_true")
+    ap.add_argument("--resume", help="continue an earlier results .jsonl: finished trials are reused, "
+                                     "crashed ones are retried, new rows are appended to the same file")
     a = ap.parse_args()
 
     diag = importlib.import_module(f"rca.{a.diagnoser}")
@@ -36,9 +38,31 @@ def main():
     if not dirs:
         sys.exit(f"no trials with truth.json under {a.trials}/")
 
+    # Checkpointing: every finished trial is appended to the results file immediately,
+    # so a crash or sleep loses at most the trial in progress.
+    done = {}
+    if a.resume:
+        out = a.resume
+        with open(out) as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue                      # half-written last line from a crash
+                if r.get("pred_component") != "error":   # crashed trials get retried
+                    done[r["trial_id"]] = r
+        print(f"resuming {out}: {len(done)} trials already done", file=sys.stderr)
+    else:
+        os.makedirs(a.out, exist_ok=True)
+        out = os.path.join(a.out, f"{a.diagnoser}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.jsonl")
+    ckpt = open(out, "a")
+
     rows = []
-    for d in dirs:
+    for i, d in enumerate(dirs, 1):
         truth = load_truth(d)
+        if truth.get("trial_id") in done:
+            rows.append(done[truth["trial_id"]])
+            continue
         if "inject_error" in truth or "inject_ts" not in truth:
             print(f"skip {truth.get('trial_id', d)}: invalid trial", file=sys.stderr)
             continue
@@ -58,12 +82,16 @@ def main():
             "latency_s": round(lat, 3), "window_records": len(inc.window),
             "pred": pred, "true_root_cause": truth["root_cause"],
         })
+        ckpt.write(json.dumps(rows[-1]) + "\n"); ckpt.flush()
+        r = rows[-1]
+        print(f"[{i}/{len(dirs)}] {r['fault']:16} -> {str(r['pred_component']):10} "
+              f"{'OK ' if r['correct'] else 'BAD'} {r['latency_s']:7.1f}s", file=sys.stderr, flush=True)
+    ckpt.close()
 
-    os.makedirs(a.out, exist_ok=True)
-    out = os.path.join(a.out, f"{a.diagnoser}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.jsonl")
-    with open(out, "w") as f:
-        for r in rows:
-            f.write(json.dumps(r) + "\n")
+    if a.resume:   # rewrite the file once, de-duplicated: one row per trial (retried crashes replaced)
+        with open(out, "w") as f:
+            for r in rows:
+                f.write(json.dumps(r) + "\n")
 
     by = defaultdict(list)
     for r in rows:
