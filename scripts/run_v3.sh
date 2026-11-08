@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Frozen v3 run: collect once, evaluate once, one job at a time so latencies are comparable.
+set -euo pipefail
 cd ~/rca-bench || exit 1
 python3 scripts/run_experiment.py --faults all --repeats 5 --seed 1000 --out trials_v3
 python3 scripts/run_experiment.py --faults none --repeats 7 --seed 2000 --out trials_v3
