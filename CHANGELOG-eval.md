@@ -24,3 +24,21 @@ that is not inspected before evaluation.
 
 Rules improved using the dev set; LLMs were not tuned -> dev comparison is NOT fair. Final claims only from a fresh test run.
 | v2 + think | 83% | 69% (RCA_THINK=1) | 75% | qwen3 reasoning mode on: +19pts vs no-think; fixes symptom-vs-cause (db_bad_password 0->100%), 0 false alarms; ~35s/trial vs ~2s. Evidence validity NOT improved (paraphrases instead of quoting). Chosen as agent model. |
+
+## v2 evaluation (2026-11-08)
+Trial set: trials_v2, run 20261105T090413Z (36 trials: 12 faults x 3). qwen3:8b, think on, temperature 0.
+
+| diagnoser | correct | 95% Wilson CI | false alarms on none | exact-quote evidence |
+|---|---|---|---|---|
+| rules | 25/36 (69%) | 53-82% | 0/3 | see results file |
+| llm | 22/36 (61%) | 45-75% | 0/3 | 18/36 |
+| agent | 28/36 (78%) | 62-88% | 0/3 | 10/36 |
+
+Agent averaged 0.9 tool calls per incident (max 4). Rules fell from 83% on the dev set to 69% here.
+
+Limitations found after reading these results (trials_v2 is now inspected; no tuning on it):
+- The sample cannot separate the diagnosers: CIs overlap; agent vs llm per fault type is 4 better, 1 worse, 7 tied (sign test p=0.38).
+- Agent differed from llm in more than tools: num_ctx 16384 vs 8192, and a prompt hint to look beyond the symptoms.
+- Silence signal: inject_ts is taken before the kill, so one log line in that gap hides a killed backend ("silent now: none").
+- evidence_valid is too strict to read as a hallucination rate: models quote the rendered prompt, elide with "...", and one bad quote fails the trial.
+- llm and agent ran concurrently on one GPU, so latencies are not comparable.

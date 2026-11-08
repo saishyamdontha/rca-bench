@@ -17,13 +17,22 @@ broken component from the logs alone.
 5. **Diagnosers** (`rca/`): see only the incident's logs, never the answer key.
    - `rules` — hand-written regex baseline
    - `llm` — single LLM call over error lines (local Ollama)
-   - agent with tools — *in progress*
+   - `agent` — same input as `llm`, plus read-only tools over system-state snapshots recorded during the trial
 6. **Evaluator** (`rca/evaluate.py`): component accuracy, false alarms on no-fault
    trials, and whether quoted evidence actually exists in the logs (hallucination check).
 
 ## Status
-Dev set (36 trials) evaluated; see `CHANGELOG-eval.md` for every change made after
-looking at dev results. **Final numbers will come only from a fresh, uninspected test run.**
+Second trial set (36 trials, 12 fault types x 3), qwen3:8b with reasoning on:
+
+| Diagnoser | Correct | 95% CI | False alarms |
+|---|---|---|---|
+| Tool-using agent | 28/36 (78%) | 62-88% | 0/3 |
+| Regex rules | 25/36 (69%) | 53-82% | 0/3 |
+| Single LLM call | 22/36 (61%) | 45-75% | 0/3 |
+
+**These numbers do not separate the three diagnosers**: the sample is small and the agent
+also had a larger context window. Known problems and the planned fixes are in
+`CHANGELOG-eval.md`; a larger, frozen `trials_v3` run is next.
 
 ## Run
 ```bash
